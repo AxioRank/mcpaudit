@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- `mcpaudit registry-scan` pulls servers from the public MCP registry, scans them
+  with bounded concurrency, and emits a "State of MCP Security" report (Markdown or
+  JSON). Anonymized by default; `--name-servers` adds a named leaderboard for
+  private triage. `--include-npm` also scans npm stdio servers; `--input` scans a
+  provided list or registry document.
+- Added `DISCLOSURE.md` (responsible-disclosure policy).
+
 ## 0.1.0
 
 First release.

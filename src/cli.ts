@@ -9,12 +9,15 @@
  * Exit codes: 0 clean, 1 findings at or above --fail-on, 2 usage/operational error.
  */
 
+import { readFileSync, writeFileSync } from "node:fs";
 import { loadConfig, specFromArgs } from "./config";
 import { type FailOn, SEVERITY_RANK, shouldFail } from "./gate";
+import { aggregate, renderReportJson, renderReportMarkdown } from "./report/aggregate";
 import { renderJson } from "./report/json";
 import { renderPretty } from "./report/pretty";
 import { renderSarif } from "./report/sarif";
 import { runProbe, type ProbeReport } from "./probe";
+import { fetchRegistrySpecs, specsFromInput } from "./registry";
 import { scanServers } from "./scan";
 import { shareScan } from "./share";
 import type { ScanResult, ServerSpec } from "./types";
@@ -162,6 +165,74 @@ function runProbeCommand(args: string[]): number {
   return 0;
 }
 
+async function runRegistryScanCommand(args: string[]): Promise<number> {
+  let limit = 50;
+  let includeNpm = false;
+  let format: "report" | "json" = "report";
+  let nameServers = false;
+  let concurrency = 4;
+  let timeoutMs = 15_000;
+  let inputPath: string | undefined;
+  let source: string | undefined;
+  let outPath: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === undefined) continue;
+    const value = () => {
+      const v = args[++i];
+      if (v === undefined) fail(`flag ${a} needs a value`);
+      return v;
+    };
+    if (a === "--limit") limit = Number(value());
+    else if (a === "--include-npm") includeNpm = true;
+    else if (a === "--name-servers") nameServers = true;
+    else if (a === "--input") inputPath = value();
+    else if (a === "--source") source = value();
+    else if (a === "--out") outPath = value();
+    else if (a === "--concurrency") concurrency = Number(value());
+    else if (a === "--timeout") timeoutMs = Number(value());
+    else if (a === "--format") {
+      const f = value();
+      if (f !== "report" && f !== "json") fail(`registry-scan format is report or json, not "${f}"`);
+      format = f;
+    } else fail(`unknown flag ${a}`);
+  }
+
+  let specs: ServerSpec[];
+  if (inputPath) {
+    try {
+      specs = specsFromInput(JSON.parse(readFileSync(inputPath, "utf8")), { includeNpm });
+    } catch (err) {
+      fail(`could not read input ${inputPath}: ${(err as Error).message}`);
+    }
+    specs = specs.slice(0, limit);
+    process.stderr.write(`scanning ${specs.length} servers from ${inputPath}\n`);
+  } else {
+    process.stderr.write(`fetching up to ${limit} servers from the MCP registry...\n`);
+    const fetched = await fetchRegistrySpecs({ baseUrl: source, limit, includeNpm, timeoutMs });
+    specs = fetched.specs;
+    process.stderr.write(
+      `scanning ${specs.length} servers (${fetched.skipped} skipped: not runnable here)\n`,
+    );
+  }
+
+  if (specs.length === 0) fail("no scannable servers found");
+
+  const results = await scanServers(specs, { timeoutMs, concurrency });
+  const report = aggregate(results, new Date().toISOString());
+  const output =
+    format === "json" ? renderReportJson(report) : renderReportMarkdown(report, { nameServers });
+
+  if (outPath) {
+    writeFileSync(outPath, output + "\n");
+    process.stderr.write(`wrote ${outPath}\n`);
+  } else {
+    process.stdout.write(output + "\n");
+  }
+  return 0;
+}
+
 function printHelp(): void {
   process.stdout.write(
     `mcpaudit ${VERSION} · scan MCP servers for prompt injection, tool poisoning, and leaked secrets\n\n` +
@@ -169,7 +240,8 @@ function printHelp(): void {
       `  mcpaudit scan -- <server command>     scan a local stdio MCP server\n` +
       `  mcpaudit scan <url>                    scan a remote MCP server\n` +
       `  mcpaudit scan --config <file>          scan every server in an MCP client config\n` +
-      `  mcpaudit probe [--full]                run the red-team corpus through the engine\n\n` +
+      `  mcpaudit probe [--full]                run the red-team corpus through the engine\n` +
+      `  mcpaudit registry-scan [--limit N]     scan the public MCP registry, emit a report\n\n` +
       `Scan options:\n` +
       `  --format pretty|json|sarif   output format (default pretty)\n` +
       `  --fail-on none|low|medium|high|critical   exit 1 at or above this severity (default high)\n` +
@@ -202,6 +274,8 @@ async function main(): Promise<number> {
       return runScanCommand(rest);
     case "probe":
       return runProbeCommand(rest);
+    case "registry-scan":
+      return runRegistryScanCommand(rest);
     default:
       process.stderr.write(`mcpaudit: unknown command "${cmd}"\n\n`);
       printHelp();

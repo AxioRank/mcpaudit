@@ -93,6 +93,16 @@ Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2
 npx @axiorank/mcpaudit probe --full
 ```
 
+## Scan the whole ecosystem
+
+`registry-scan` pulls servers from the public MCP registry, scans them, and emits a "State of MCP Security" report (aggregate by default, no names).
+
+```bash
+npx @axiorank/mcpaudit registry-scan --limit 100 --out REPORT.md
+```
+
+It is read-only and scans remote servers by default; add `--include-npm` to also run npm stdio servers. Server names are withheld unless you pass `--name-servers`, so the default report is safe to publish before maintainers are contacted. See [DISCLOSURE.md](./DISCLOSURE.md).
+
 ## Free, and where AxioRank fits
 
 mcpaudit is free and open source. It finds and reports risk. [AxioRank](https://axiorank.com) is the hosted control plane that ENFORCES it at runtime: it gates live tool calls, holds risky ones for human approval, keeps a tamper-evident audit log, and governs agents across an organization. Run `mcpaudit scan --share` to publish a scorecard and pick up where the free scan leaves off.
