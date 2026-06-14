@@ -103,6 +103,8 @@ npx @axiorank/mcpaudit registry-scan --limit 100 --out REPORT.md
 
 It is read-only and scans remote servers by default; add `--include-npm` to also run npm stdio servers. Server names are withheld unless you pass `--name-servers`, so the default report is safe to publish before maintainers are contacted. See [DISCLOSURE.md](./DISCLOSURE.md).
 
+The latest run is in [REPORT.md](./REPORT.md). In a scan of public registry servers, **71% had at least one security finding** and **45 would be blocked by the default posture**, with shell-injection-prone tool descriptions, credential-access tools, and fund-movement capabilities the most common.
+
 ## Free, and where AxioRank fits
 
 mcpaudit is free and open source. It finds and reports risk. [AxioRank](https://axiorank.com) is the hosted control plane that ENFORCES it at runtime: it gates live tool calls, holds risky ones for human approval, keeps a tamper-evident audit log, and governs agents across an organization. Run `mcpaudit scan --share` to publish a scorecard and pick up where the free scan leaves off.
