@@ -1,0 +1,70 @@
+name: "mcpaudit"
+description: >-
+  Scan your MCP servers for prompt injection, tool poisoning, leaked secrets, and
+  dangerous capabilities. Fails the build on high-risk findings and uploads SARIF
+  to GitHub code scanning.
+author: "AxioRank"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  config:
+    description: "Path to an MCP client config to scan (e.g. .mcp.json)."
+    required: false
+    default: ".mcp.json"
+  args:
+    description: >-
+      Extra arguments for `mcpaudit scan`, used INSTEAD of `config` when set.
+      For a stdio server: `-- npx -y @modelcontextprotocol/server-everything`.
+      For a remote server: `https://example.com/mcp`.
+    required: false
+    default: ""
+  fail-on:
+    description: "Exit non-zero at or above this severity: none, low, medium, high, or critical."
+    required: false
+    default: "high"
+  upload-sarif:
+    description: "Upload the SARIF report to GitHub code scanning."
+    required: false
+    default: "true"
+  version:
+    description: "Version (or npm dist-tag) of @axiorank/mcpaudit to run."
+    required: false
+    default: "latest"
+  node-version:
+    description: "Node.js version used to run the scan."
+    required: false
+    default: "20"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run mcpaudit
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        if [ -n "${{ inputs.args }}" ]; then
+          npx -y "@axiorank/mcpaudit@${{ inputs.version }}" scan ${{ inputs.args }} \
+            --format sarif --fail-on "${{ inputs.fail-on }}" > mcpaudit.sarif
+        else
+          npx -y "@axiorank/mcpaudit@${{ inputs.version }}" scan --config "${{ inputs.config }}" \
+            --format sarif --fail-on "${{ inputs.fail-on }}" > mcpaudit.sarif
+        fi
+        echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF to code scanning
+      if: ${{ always() && inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: mcpaudit.sarif
+        category: mcpaudit
+
+    - name: Enforce gate
+      shell: bash
+      run: exit ${{ steps.scan.outputs.exit }}

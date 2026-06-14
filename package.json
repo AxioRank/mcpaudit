@@ -1,0 +1,60 @@
+{
+  "name": "@axiorank/mcpaudit",
+  "version": "0.1.0",
+  "description": "Scan any MCP server for prompt injection, tool poisoning, leaked secrets, and destructive capabilities. One command, no key, no signup.",
+  "license": "MIT",
+  "homepage": "https://axiorank.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AxioRank/mcpaudit.git"
+  },
+  "bugs": "https://github.com/AxioRank/mcpaudit/issues",
+  "author": "AxioRank",
+  "type": "module",
+  "bin": {
+    "mcpaudit": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "mcp-security",
+    "mcp-scanner",
+    "security-scanner",
+    "prompt-injection",
+    "tool-poisoning",
+    "ai-agents",
+    "agent-security",
+    "llm-security",
+    "ai-safety",
+    "secrets-detection",
+    "sarif",
+    "axiorank"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@axiorank/detectors": "^0.1.0",
+    "@axiorank/redteam-corpus": "^0.1.0",
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
+  }
+}
