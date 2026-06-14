@@ -1,8 +1,5 @@
 name: "mcpaudit"
-description: >-
-  Scan your MCP servers for prompt injection, tool poisoning, leaked secrets, and
-  dangerous capabilities. Fails the build on high-risk findings and uploads SARIF
-  to GitHub code scanning.
+description: "Scan MCP servers for prompt injection, tool poisoning, and leaked secrets. Fail CI on findings and upload SARIF."
 author: "AxioRank"
 branding:
   icon: "shield"
