@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- `mcpaudit scan --report <url>` posts the scan straight to an AxioRank discovery
+  endpoint (e.g. `/api/discovery/mcp-scan`) with a per-workspace ingest token, so
+  the MCP servers wired into your AI client flow into Shadow AI discovery without a
+  curl pipe. The token comes from `--report-token` or the `AXR_INGEST_TOKEN`
+  environment variable; reporting is best effort and never fails the scan.
+
 ## 0.2.0
 
 - `mcpaudit registry-scan` pulls servers from the public MCP registry, scans them

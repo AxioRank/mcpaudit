@@ -1,6 +1,6 @@
 {
   "name": "@axiorank/mcpaudit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Scan any MCP server for prompt injection, tool poisoning, leaked secrets, and destructive capabilities. One command, no key, no signup.",
   "license": "MIT",
   "homepage": "https://axiorank.com",

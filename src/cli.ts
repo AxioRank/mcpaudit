@@ -16,6 +16,7 @@ import { aggregate, renderReportJson, renderReportMarkdown } from "./report/aggr
 import { renderJson } from "./report/json";
 import { renderPretty } from "./report/pretty";
 import { renderSarif } from "./report/sarif";
+import { postReport } from "./report";
 import { runProbe, type ProbeReport } from "./probe";
 import { fetchRegistrySpecs, specsFromInput } from "./registry";
 import { scanServers } from "./scan";
@@ -43,6 +44,8 @@ interface ScanArgs {
   share: boolean;
   timeoutMs: number;
   baseUrl: string;
+  reportUrl?: string;
+  reportToken?: string;
 }
 
 function parseScanArgs(args: string[]): ScanArgs {
@@ -52,6 +55,8 @@ function parseScanArgs(args: string[]): ScanArgs {
   let timeoutMs = 15_000;
   let baseUrl = DEFAULT_BASE_URL;
   let configPath: string | undefined;
+  let reportUrl: string | undefined;
+  let reportToken: string | undefined;
 
   const dd = args.indexOf("--");
   const head = dd === -1 ? args : args.slice(0, dd);
@@ -80,6 +85,8 @@ function parseScanArgs(args: string[]): ScanArgs {
     } else if (a === "--share") share = true;
     else if (a === "--timeout") timeoutMs = Number(value());
     else if (a === "--base-url") baseUrl = value();
+    else if (a === "--report") reportUrl = value();
+    else if (a === "--report-token") reportToken = value();
     else if (a.startsWith("--")) fail(`unknown flag ${a}`);
     else {
       target = a;
@@ -106,7 +113,7 @@ function parseScanArgs(args: string[]): ScanArgs {
   }
 
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) fail("--timeout must be a positive number");
-  return { specs, format, failOn, share, timeoutMs, baseUrl };
+  return { specs, format, failOn, share, timeoutMs, baseUrl, reportUrl, reportToken };
 }
 
 async function runScanCommand(args: string[]): Promise<number> {
@@ -120,12 +127,38 @@ async function runScanCommand(args: string[]): Promise<number> {
   else if (opts.format === "sarif") process.stdout.write(renderSarif(results) + "\n");
   else process.stdout.write(renderPretty(results) + "\n");
 
+  if (opts.reportUrl) await runReport(opts.reportUrl, opts.reportToken, results, scannedAt);
+
   const allErrored = results.length > 0 && results.every((r) => r.error);
   if (allErrored) {
     process.stderr.write("mcpaudit: every server failed to scan.\n");
     return 2;
   }
   return shouldFail(results, opts.failOn) ? 1 : 0;
+}
+
+/** Post the scan report to an AxioRank discovery endpoint. The token comes from
+ *  --report-token or the AXR_INGEST_TOKEN env var (env is preferred - it keeps the
+ *  secret out of argv). Best effort: a failure is reported on stderr, never throws. */
+async function runReport(
+  url: string,
+  tokenArg: string | undefined,
+  results: ScanResult[],
+  scannedAt: string,
+): Promise<void> {
+  const token = tokenArg ?? process.env.AXR_INGEST_TOKEN;
+  if (!token) {
+    process.stderr.write(
+      "mcpaudit: --report needs a token (set AXR_INGEST_TOKEN or pass --report-token)\n",
+    );
+    return;
+  }
+  try {
+    const res = await postReport(url, token, results, scannedAt);
+    process.stderr.write(`reported ${res.recorded} MCP server(s) to AxioRank discovery\n`);
+  } catch (err) {
+    process.stderr.write(`mcpaudit: could not report to AxioRank: ${(err as Error).message}\n`);
+  }
 }
 
 async function runShare(results: ScanResult[], baseUrl: string): Promise<void> {
@@ -246,11 +279,15 @@ function printHelp(): void {
       `  --format pretty|json|sarif   output format (default pretty)\n` +
       `  --fail-on none|low|medium|high|critical   exit 1 at or above this severity (default high)\n` +
       `  --share                      post the result to a public AxioRank scorecard\n` +
+      `  --report <url>               post the scan to an AxioRank discovery endpoint\n` +
+      `  --report-token <token>       ingest token for --report (or set AXR_INGEST_TOKEN)\n` +
       `  --timeout <ms>               per-request timeout (default 15000)\n` +
       `  --base-url <url>             AxioRank base URL for --share\n\n` +
       `Examples:\n` +
       `  npx mcpaudit scan -- npx -y @modelcontextprotocol/server-everything\n` +
       `  npx mcpaudit scan --config ~/.cursor/mcp.json --format sarif > mcpaudit.sarif\n` +
+      `  AXR_INGEST_TOKEN=… npx mcpaudit scan --config ~/.cursor/mcp.json \\\n` +
+      `    --report https://www.axiorank.com/api/discovery/mcp-scan\n` +
       `  npx mcpaudit probe --full\n\n` +
       `Runs locally with no key and no signup. The only network call a scan makes is to the server you point it at.\n`,
   );

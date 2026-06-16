@@ -81,6 +81,13 @@ Or wire the CLI into any pipeline directly:
 npx @axiorank/mcpaudit scan --config .mcp.json --format sarif --fail-on high > mcpaudit.sarif
 ```
 
+Or report the MCP servers in your AI client straight into [AxioRank](https://axiorank.com) Shadow AI discovery (the token comes from `--report-token` or `AXR_INGEST_TOKEN`):
+
+```bash
+AXR_INGEST_TOKEN=… npx @axiorank/mcpaudit scan --config ~/.cursor/mcp.json \
+  --report https://www.axiorank.com/api/discovery/mcp-scan
+```
+
 Exit codes: `0` clean, `1` findings at or above `--fail-on` (default `high`), `2` usage or connection error.
 
 ## How it works
